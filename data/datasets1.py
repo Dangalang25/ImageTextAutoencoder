@@ -16,6 +16,7 @@ import glob
 import re
 import pickle
 import ntpath
+from tqdm import tqdm
 
 class Image_Caption_Dataset(Dataset):
     def __init__(self, vocab_builder):
@@ -271,7 +272,8 @@ class BirdstextDataset(Image_Caption_Dataset):
         ###################################################################
 
         # read captions to determine max sentence length
-        caption_dir = os.path.join(rootdir, "text_c10")
+        # caption_dir = os.path.join(rootdir, "text_c10")
+        caption_dir = "data/birds/text_c10"
         captionpaths = []
         for subdir in os.listdir(caption_dir):
             for file in os.listdir(os.path.join(caption_dir, subdir)):
@@ -351,8 +353,9 @@ class BillionDataset(Image_Caption_Dataset):
                         if (len(self.vocab_builder.tokenizer.tokenize(line)) +2)  <= 75 : #with length less than the length of birds dataset
                             self.captions.append(line.strip().lower())
                 f.close()
-        max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in self.captions])
+        max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in tqdm(self.captions, desc="Sentences")])
         self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
+        print("THE MAX SEN LENGTH FOR BILLION IS", self.max_sent_length)
         # build vocabulary
         print('number of captions in billion dataset', len(self.captions))
         self.build_vocab(captionpaths)
@@ -1005,15 +1008,16 @@ class FlowerstextDataset(Image_Caption_Dataset):
                         allcaptions.append(line.strip()) # select always the first description as caption for now
                         
                         
-        max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in allcaptions])
+        # max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in tqdm(allcaptions, desc="sentences")])
         
+        max_sent_length = 74
         self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
         
         
-        #print('the maximum sentence length',self.max_sent_length)
+        print('the maximum sentence length',self.max_sent_length)
         #print('number of images:', len(self.images), 'number of captions:',len(self.captions))
         # build vocabulary
-        print('number of captions in birds dataset', len(self.captions))
+        print('number of captions in flowers dataset', len(self.captions))
         self.build_vocab(captionpaths)
 
     def __len__(self):

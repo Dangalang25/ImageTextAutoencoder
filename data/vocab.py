@@ -2,6 +2,7 @@ import spacy as spacy
 import torch
 import csv
 import re
+from tqdm import tqdm
 spacy.prefer_gpu()
 
 class BaseTokenizer(object):
@@ -135,7 +136,7 @@ class BaseVocabBuilder(object):
         :param listof_filepaths: a list of files to load the tokens from
         :return:
         """
-        for filepath in listof_filepaths:
+        for filepath in tqdm(listof_filepaths, desc="Tokenizing"):
             self.load_text(filepath)
 
     def read_sentences(self, filepath):

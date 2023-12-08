@@ -3,7 +3,8 @@ import torch
 import random
 from models.utils1 import sample_z
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 class RNNDText(nn.Module):
 
@@ -92,7 +93,7 @@ class RNNDText(nn.Module):
         sorted_lens, sorted_idx = torch.sort(text_length, descending=True)
         forwards_sorted = embedded[sorted_idx]#sort the embedding based on length
         _, sortedsorted_idx = sorted_idx.sort()#sorting the sorted index, to figure out unsorted index
-        packed = torch.nn.utils.rnn.pack_padded_sequence(forwards_sorted, sorted_lens, batch_first=True)#reduces computation packed sequence is a tuple of two 
+        packed = torch.nn.utils.rnn.pack_padded_sequence(forwards_sorted, sorted_lens.to('cpu'), batch_first=True)#reduces computation packed sequence is a tuple of two 
         #lists . One list contain sequences , where sequences are interleaved by time space.Other list contains
         #the batch size at each time step. first list format (sequences, embedding dimention)#(batch first) is used if the input to the fuction has batch as first dimention
         h, _ = self.encoder(packed)#Inputs: input, (h_0, c_0) when hidden and cell not provided default taken as 0 vectors as in this case

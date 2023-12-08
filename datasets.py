@@ -254,7 +254,7 @@ class TextDataset(data.Dataset):
 
         caption_dict = {}
         for key in self.filenames:
-            caption_name = '%s/text/%s.txt' % (self.data_dir, key)
+            caption_name = '%s/text_c10/%s.txt' % (self.data_dir, key)
             captions = load_captions(caption_name)
             caption_dict[key] = captions
         return caption_dict

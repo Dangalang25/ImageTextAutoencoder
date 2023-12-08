@@ -1,6 +1,8 @@
 from __future__ import print_function
 from __future__ import division
 import os
+from tqdm import tqdm
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -42,15 +44,43 @@ model_name = "AutoEncoderD"
 additional ='glove100_flower'
 ver='False150'#'True88' #initial version of the model to be loaded
 glove_folder ='glove.6B_flowers'
-gname = glove_folder + '/glove.6B.100d.txt' # for glove embedding
+gname = glove_folder + '/glove.6B.100d copy.txt' # for glove embedding
+emb = []
+ind = 0
+i2t = []
+t2i = {}
+with open(gname, 'r', encoding="utf-8") as f:
+    for line in f:
+        values = line.split()
+        vector = np.asarray(values[1:], "float")
+        emb.append(vector)
+        i2t.append(values[0])
+        t2i[values[0]] = ind
+        ind += 1
+    f.close()
 #gname = None
+
+file_emb = open(os.path.join(glove_folder,'emtrix.obj'), 'wb')
+pickle.dump(torch.tensor(emb).float(), file_emb)
+file_emb.close()
+
+file_i2t = open(os.path.join(glove_folder,'vocab_i2t.obj'), 'wb')
+pickle.dump(i2t, file_i2t)
+file_i2t.close()
+
+file_t2i = open(os.path.join(glove_folder,'vocab_t2i.obj'), 'wb')
+pickle.dump(t2i, file_t2i)
+file_t2i.close()
+
+file_vocab_t2i = open(os.path.join(glove_folder,'vocab_t2i.obj'), 'rb')
+t2i = pickle.load(file_vocab_t2i)
 
 ######################################################################
 ################step 1. Run with gname location, benchmark= True#for pretraining the model with glove embedding
 ################step 2. Run with gname location, benchmark=False# for finetuning the pretrained modelwith glove embedding
 ################ if gname location is not given it will be trained from scratch with embedding also trained
 ######################################################################
-benchmark = False #when True run for benchmark dataset , when false Run for Actual dataset
+benchmark = True #when True run for benchmark dataset , when false Run for Actual dataset
 
 #gname = None
 if gname is None: # when gname is not provided no benchmark training is done
@@ -62,11 +92,11 @@ hidden_dim = 100
 
 
 # Batch size for training (change depending on how much memory you have)
-batch_size = 128
+batch_size = 16 # 128 originally
 
 # Number of epochs to train for
 num_epochs = 500
-restart_epoch = 152 #1 #49#restartting from failed step
+restart_epoch = 1 #1 #49#restartting from failed step
 
 # Flag for feature extracting. When False, we finetune the whole model, else we only extract features
 feature_extract = False
@@ -199,7 +229,7 @@ def train_model(model, dataloaders, criterion, optimizer, num_epochs=25, restart
                 
 
             # Iterate over data.
-            for _, _, captions, lengths in dataloaders[phase]:
+            for _, _, captions, lengths in tqdm(dataloaders[phase]):
                 #print('cap:',captions)
                 #print('len:',lengths)
                 captions, lengths= adjust_padding(captions, lengths)
@@ -289,8 +319,9 @@ inv_normalize = transforms.Normalize(mean=[-mean_r/std_r, -mean_g/std_g, -mean_b
 # Data augmentation and normalization for training
 #pretrain_dir = '1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/*'
 print("Initializing Datasets and Dataloaders...")
-pretrain_dir = '1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/*'
-benchmark_datasets = {x: BillionDataset(pretrain_dir, split=x) for x in ['train']}
+if benchmark:
+    pretrain_dir = '1-billion-word-language-modeling-benchmark-r13output/training-monolingual.tokenized.shuffled/*'
+    benchmark_datasets = {x: BillionDataset(pretrain_dir, split=x) for x in ['train']}
 
 
 
@@ -304,8 +335,8 @@ elif data_set_type == '2':
 ds = text_datasets['train']
 
 vocab = ds.get_vocab_builder()
-#print('the max length is', ds.max_sent_length)
-#print('the vocab size of birds dataset', vocab.vocab_size())
+print('the max length is', ds.max_sent_length)
+print('the vocab size of birds dataset', vocab.vocab_size())
 
 
     
@@ -335,11 +366,11 @@ if gname is not None:
       #  if embedding_vector is None:
        #     print(word)
         
-        
-    benchmark_datasets['train'].vocab_builder.i2t = vocab.i2t
+    if benchmark:    
+        benchmark_datasets['train'].vocab_builder.i2t = vocab.i2t
+        benchmark_datasets['train'].vocab_builder.t2i = vocab.t2i
     #print('benchmark dataset new vocabsize', len(benchmark_datasets['train'].vocab_builder.i2t))
     text_datasets['val'].vocab_builder.t2i = vocab.t2i
-    benchmark_datasets['train'].vocab_builder.t2i = vocab.t2i
     #print('length of t2i', len(benchmark_datasets['train'].vocab_builder.t2i), len(t2i))
     
     vocab = ds.get_vocab_builder()
@@ -348,8 +379,13 @@ if gname is not None:
 else:
     embeddings_matrix = None
 ###################################################################################
-bench_dataloader_dict = {x: DataLoader(benchmark_datasets[x], batch_size=batch_size, shuffle=True, num_workers=0) for x in ['train']}  
+if benchmark:
+    bench_dataloader_dict = {x: DataLoader(benchmark_datasets[x], batch_size=batch_size, shuffle=True, num_workers=0) for x in ['train']}  
 dataloaders_dict = {x: DataLoader(text_datasets[x], batch_size=batch_size, shuffle=True, num_workers=0) for x in ['train', 'val']}
+vocab.t2i['<PAD>'] = 0
+vocab.t2i['<SOS>'] = 1
+vocab.t2i['<EOS>'] = 2
+vocab.t2i['<UNK>'] = 3
 
 #print('the new vocab size of birds dataset', vocab.vocab_size())
     
@@ -384,20 +420,20 @@ model_ft.cuda()
 params_to_update = model_ft.parameters()
 print("Params to learn:")
 for name,param in model_ft.named_parameters():
-        if param.requires_grad == True:
-            print("\t",name)
+    if param.requires_grad == True:
+        print("\t",name)
 
 # Observe that all parameters are being optimized
 optimizer_ft = optim.Adam(params_to_update)
 
-if (restart_epoch > 1) or ((not benchmark) and gname is not None):
-        print('loading model from checkpoint............')
-        model_ft, optimizer = load_checkpoint(model_ft, optimizer_ft, chkpt)
-        params_to_update = model_ft.parameters()
-        optimizer_ft = optim.Adam(params_to_update)
-        if (restart_epoch > 1): # when restarting both optimizer and model is loaded
-            print('loading optimizer from checkpoint.................')
-            optimizer_ft = optimizer
+# if (restart_epoch > 1) or ((not benchmark) and gname is not None):
+#         print('loading model from checkpoint............')
+#         model_ft, optimizer = load_checkpoint(model_ft, optimizer_ft, chkpt)
+#         params_to_update = model_ft.parameters()
+#         optimizer_ft = optim.Adam(params_to_update)
+#         if (restart_epoch > 1): # when restarting both optimizer and model is loaded
+#             print('loading optimizer from checkpoint.................')
+#             optimizer_ft = optimizer
 if not benchmark:
     dataloaders_dict = dataloaders_dict
     output_loader = dataloaders_dict['val']
@@ -418,10 +454,10 @@ model_ft, hist = train_model(model_ft, dataloaders_dict, criterion, optimizer_ft
 
 # show reconstruction for first batch
 model_ft.eval() #set eval mode for testing
-#print('#################Eval mode##################')
+print('#################Eval mode##################')
 f =open(os.path.join(results_writer_val, sys.argv[3]), 'w')
 print('actual','\t','generated', file = f)
-for _, _, cap, len1 in output_loader:
+for _, _, cap, len1 in tqdm(output_loader):
     cap, len1= adjust_padding(cap, len1)
     cap = cap.cuda()
     len1 = len1.cuda()
