@@ -3,8 +3,7 @@ import torch
 import random
 from models.utils1 import sample_z
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class RNNDText(nn.Module):
 
