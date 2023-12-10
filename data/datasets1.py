@@ -28,8 +28,29 @@ class Image_Caption_Dataset(Dataset):
     def __getitem__(self, idx):
         raise NotImplementedError("This method must be implemented in subclass")
 
-    def build_vocab(self, listof_files):
-        self.vocab_builder.load_texts(listof_files)
+    def build_vocab(self, listof_files, thing):
+        if thing == "train":
+            file_vocab_t2i = open(("flower_t2i_train.obj"), 'rb')
+            t2i = pickle.load(file_vocab_t2i)
+            self.vocab_builder.t2i = t2i
+            file_vocab_t2i.close()
+
+            file_vocab_i2t = open(("flower_i2t_train.obj"), 'rb')
+            i2t = pickle.load(file_vocab_i2t)
+            self.vocab_builder.i2t = i2t
+            file_vocab_i2t.close()
+        elif thing == "val":
+            file_vocab_t2i = open(("flower_t2i_val.obj"), 'rb')
+            t2i = pickle.load(file_vocab_t2i)
+            self.vocab_builder.t2i = t2i
+            file_vocab_t2i.close()
+
+            file_vocab_i2t = open(("flower_i2t_val.obj"), 'rb')
+            i2t = pickle.load(file_vocab_i2t)
+            self.vocab_builder.i2t = i2t
+            file_vocab_i2t.close()
+        else:
+            self.vocab_builder.load_texts(listof_files, thing)
 
     def get_vocab_builder(self):
         return self.vocab_builder
@@ -343,7 +364,7 @@ class BillionDataset(Image_Caption_Dataset):
         
         captionpaths = []
         self.captions=[]
-        for captionpath in glob.glob(self.captiondir):
+        for captionpath in tqdm(glob.glob(self.captiondir), desc="Billion files"):
             if len(self.captions) < 1000000: #taking only one million records
                 captionpaths.append(captionpath)
                 f = open(captionpath , 'r', encoding='utf-8')
@@ -353,8 +374,9 @@ class BillionDataset(Image_Caption_Dataset):
                         if (len(self.vocab_builder.tokenizer.tokenize(line)) +2)  <= 75 : #with length less than the length of birds dataset
                             self.captions.append(line.strip().lower())
                 f.close()
-        max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in tqdm(self.captions, desc="Sentences")])
-        self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
+      #  max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in tqdm(self.captions, desc="Sentences")])
+        #self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
+        self.max_sent_length = 80
         print("THE MAX SEN LENGTH FOR BILLION IS", self.max_sent_length)
         # build vocabulary
         print('number of captions in billion dataset', len(self.captions))
@@ -847,11 +869,11 @@ class FlowersDataset1(Image_Caption_Dataset):
                 if len(lines) > 0:
                     line = re.sub(r'[^A-Za-z0-9 ,.?!-]+', ' ', lines[0])
                     captions.append(line.strip()) # select always the first description as caption for now
-        max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in captions])
-        self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
-
+        # max_sent_length = max([len(self.vocab_builder.tokenizer.tokenize(sentence)) for sentence in captions])
+        # self.max_sent_length = max_sent_length + 2  # + 2 for sos and eos
+        self.max_sent_length = 76
         # build vocabulary
-        self.build_vocab(captionpaths)
+        self.build_vocab(captionpaths, split)
 
     def __len__(self):
         return len(self.images)

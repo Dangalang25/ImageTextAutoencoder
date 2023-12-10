@@ -13,7 +13,7 @@ from data.datasets1 import BirdsDataset1, FlowersDataset1
 from torchvision import transforms
 import torchvision.models as torch_models
 from config import cfg
-from models.stack_gan2.model1 import encoder_resnet1, G_NET1, G_NET, D_NET_TEXT1, MAP_NET_IT22, D_NET_IMAGE1, MAP_NET_TI22
+from models.stack_gan2.model1 import encoder_resnet, encoder_resnet1, G_NET1, G_NET, D_NET_TEXT1, MAP_NET_IT22, D_NET_IMAGE1, MAP_NET_TI22
 import models.text_auto_models1 as text_models
 from data.resultwriter import ResultWriter
 from models.utils1 import Logger
@@ -75,12 +75,12 @@ def adjust_padding(cap, len1):
 ##########################################################################
 ########################################################################
 
-encoder_path='/home/das/dev/unsup/saved_models/flowers/encG_175800_128.pth' #image encoder
-dec_path='/home/das/dev/unsup/saved_models/flowers/netG_175800_128.pth' #image decoder
-text_autoencoder_path = '//home/das/dev/unsup/saved_models/flowers/AutoEncoderDglove100_flowerFalse203.pt' # text auto encoder
-IT_GEN_PATH = 'netGIT_33000.pth' # netGIT_100.pth #this is Image t TEXt embedding generator , if not restarted
+encoder_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/encG_160000.pth'#encG_175800_128.pth' #image encoder
+dec_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/netG_160000.pth' #image decoder
+text_autoencoder_path = 'stored_model_dir/AutoEncoderDglove100_flowerTrue0.pt' #'//home/das/dev/unsup/saved_models/flowers/AutoEncoderDglove100_flowerFalse203.pt' # text auto encoder
+IT_GEN_PATH = ''#'netGIT_33000.pth' # netGIT_100.pth #this is Image t TEXt embedding generator , if not restarted
 #from previous fails should be empty
-IT_DIS_PATH= 'netDIT.pth' #netDIT.pth
+IT_DIS_PATH= '' #'netDIT.pth' #netDIT.pth
 TI_GEN_PATH= '' #netGTI_100.pth
 TI_DIS_PATH= '' #netDTI.pth
 
@@ -126,7 +126,7 @@ wt = 1e-5
 
 # Detect if we have a GPU available
 #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-gpu_id = '5'
+gpu_id = '0'
 torch.cuda.set_device(int(gpu_id))
 s_gpus = gpu_id.split(',')
 gpus = [int(ix) for ix in s_gpus]
@@ -276,7 +276,7 @@ def define_optimizers(netGIT, netDIT,netGTI, netDTI, path):
  
 def load_network(path):
     ####################Image deoder################################
-    netG = G_NET1()
+    netG = G_NET()
     netG.apply(weights_init)
     netG = torch.nn.DataParallel(netG, device_ids=gpus)
     #################################################################
@@ -442,7 +442,7 @@ def initialize_model(model_name, config, embeddings_matrix):
     #num_ftrs = enc.fc.in_features
     #enc.fc = nn.Linear(num_ftrs, 1024)
     #enc = enc.to(device)
-    enc = encoder_resnet1()
+    enc = encoder_resnet()
     enc.cuda()
     
     print("=> loading Image encoder from '{}'".format(encoder_path))
@@ -1009,6 +1009,10 @@ text_datasets['val'].vocab_builder.t2i = vocab.t2i
 # Create training and validation dataloaders
 dataloaders_dict = {x: DataLoader(text_datasets[x], batch_size=batch_size, shuffle=True, num_workers=0) for x in ['train', 'val']}
 
+vocab.t2i['<PAD>'] = 0
+vocab.t2i['<SOS>'] = 1
+vocab.t2i['<EOS>'] = 2
+vocab.t2i['<UNK>'] = 3
 config = {  'emb_dim': embedding_dim,
                 'hid_dim': hidden_dim//2, #birectional is used so hidden become double
                 'n_layers': 1,
