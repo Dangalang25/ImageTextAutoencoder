@@ -28,7 +28,7 @@ from data.resultwriter import ResultWriter
 import mmd.base_module as base_module
 from mmd.mmd import mix_rbf_mmd2
 from tensorboardX import SummaryWriter
-from models.stack_gan2.model1 import encoder_resnet1, G_NET1, MAP_NET_IT2, MAP_NET_TI2
+from models.stack_gan2.model1 import encoder_resnet, G_NET, MAP_NET_IT2, MAP_NET_TI2
 import models.text_auto_models1 as text_models
 from config import cfg
 from data.datasets1 import BirdsDataset1, FlowersDataset1
@@ -84,12 +84,14 @@ torch.manual_seed(args.manual_seed)
 torch.cuda.manual_seed(args.manual_seed)
 cudnn.benchmark = True
 
-encoder_path='/home/das/dev/unsup/saved_models/flowers/encG_175800_128.pth' #image encoder
-dec_path='/home/das/dev/unsup/saved_models/flowers/netG_175800_128.pth' #image decoder
-text_autoencoder_path = '/home/das/dev/unsup/saved_models/flowers/AutoEncoderDglove100_flowerFalse203.pt' # text auto encoder
-GEN_PATH = 'netG_77036.pth' # netG_100.pth #this is Image t TEXt embedding generator , if not restarted
+encoder_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/encG_175823.pth' #image encoder
+dec_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/netG_175823.pth' #image decoder
+text_autoencoder_path = 'stored_model_dir/AutoEncoderDglove100_flowerTrue0.pt' # text auto encoder
+# GEN_PATH = 'netG_77036.pth' # netG_100.pth #this is Image t TEXt embedding generator , if not restarted
+GEN_PATH = ''
 #from previous fails should be empty
-DIS_PATH= 'netD_77036.pth' 
+# DIS_PATH= 'netD_77036.pth' 
+DIS_PATH= ''
 
 dset='flowers'#'birds'
 
@@ -242,7 +244,7 @@ def define_optimizers(netG, netD, path):
 
 def load_network(path):
     ####################Image deoder################################
-    dec = G_NET1()
+    dec = G_NET()
     dec.apply(base_module.weights_init)
     dec = torch.nn.DataParallel(dec, device_ids=gpus)
     #################################################################
@@ -316,7 +318,7 @@ def initialize_model(model_name, config, embeddings_matrix):
     #enc.fc = nn.Linear(num_ftrs, 1024)
     #enc = enc.to(device)
     ################################################################
-    enc = encoder_resnet1()
+    enc = encoder_resnet()
     enc.cuda()
     #enc = enc.to(device)
     
@@ -431,6 +433,10 @@ text_datasets['val'].vocab_builder.t2i = vocab.t2i
 # Create training and validation dataloaders
 dataloaders_dict = {x: DataLoader(text_datasets[x], batch_size=args.batch_size, shuffle=True, num_workers=int(args.workers)) for x in ['train', 'val']}
 
+vocab.t2i['<PAD>'] = 0
+vocab.t2i['<SOS>'] = 1
+vocab.t2i['<EOS>'] = 2
+vocab.t2i['<UNK>'] = 3
 config = {  'emb_dim': embedding_dim,
                 'hid_dim': hidden_dim//2, #birectional is used so hidden become double
                 'n_layers': 1,
@@ -521,7 +527,8 @@ for t in range(start_epoch, args.max_iter):
             for p in netD.encoder.parameters():
                 p.data.clamp_(-0.01, 0.01)
 
-            data = data_iter.next()
+            # data = data_iter.next()
+            data = next(data_iter)
             i += 1
             count += 1
             netD.zero_grad()
@@ -543,8 +550,8 @@ for t in range(start_epoch, args.max_iter):
                 # (1) Image embedding from pretrained model
             ##########################################################
             
-            #img_embedding = enc(inp0)
-            img_embedding, _, _ = enc(inp0)
+            img_embedding = enc(inp0)
+            # img_embedding, _, _ = enc(inp0)
             x = img_embedding
             
             ##########################################################

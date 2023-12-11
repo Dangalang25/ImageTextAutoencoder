@@ -13,7 +13,7 @@ from data.datasets1 import BirdsDataset1, FlowersDataset1
 from torchvision import transforms
 import torchvision.models as torch_models
 from config import cfg
-from models.stack_gan2.model1 import encoder_resnet, encoder_resnet1, G_NET1, G_NET, D_NET_TEXT1, MAP_NET_IT22, D_NET_IMAGE1, MAP_NET_TI22
+from models.stack_gan2.model1 import encoder_resnet, encoder_resnet1, G_NET1, G_NET, D_NET_TEXT1, MAP_NET_IT22, D_NET_IMAGE1, MAP_NET_TI22, MAP_NET_IT1, MAP_NET_IT, MAP_NET_IT2, MAP_NET_IT3
 import models.text_auto_models1 as text_models
 from data.resultwriter import ResultWriter
 from models.utils1 import Logger
@@ -281,7 +281,7 @@ def load_network(path):
     netG = torch.nn.DataParallel(netG, device_ids=gpus)
     #################################################################
     #########################Image to text GEN##################################
-    genIT = MAP_NET_IT22()
+    genIT = MAP_NET_IT1()
     genIT.apply(weights_init)
     genIT = torch.nn.DataParallel(genIT, device_ids=gpus)
     ####################################################################
@@ -840,9 +840,9 @@ class ImageTextTrainer(object):
                 ##########################################################
                 # (1) Image embedding from pretrained model
                 ##########################################################
-                #self.img_embedding = self.enc(inp0)
-                self.img_embedding, _, _ = self.enc(inp0)
-                #print('image emb shape:' , self.img_embedding.shape)
+                self.img_embedding = self.enc(inp0)
+                # self.img_embedding, _, _ = self.enc(inp0)
+                print('image emb shape:' , self.img_embedding.shape)
                 
                 ##########################################################
                 # (2) Text embedding from pretrained model
@@ -853,9 +853,9 @@ class ImageTextTrainer(object):
                 # (1) Generate fake text_embedding
                 ######################################################
                 noise1_.data.normal_(0, 1)
-                #print('noise shape:', noise.shape)
-                #print('image emb shape:', self.img_embedding.shape)
-                #self.text_embedding_fake = self.genIT(noise1_, self.img_embedding.detach())
+                # print('noise shape:', noise_.shape)
+                # print('image emb shape:', self.img_embedding.shape)
+                # self.text_embedding_fake = self.genIT(noise1_, self.img_embedding.detach())
                 self.text_embedding_fake = self.genIT(self.img_embedding.detach())
                 #######################################################
                 # (1) Generate fake image_embedding
