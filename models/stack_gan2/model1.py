@@ -993,7 +993,7 @@ class MAP_NET_TI22(nn.Module):
             #Swish())
             #nn.LeakyReLU(0.2, inplace=True))
         self.fc2 = nn.Sequential(
-                nn.Linear(efg*4, efg))
+                nn.Linear(efg*4, 1024))
                 
         ##self.fc2 = nn.Sequential(
           ##      nn.Linear((ndf + efg)//2, efg))
@@ -1002,6 +1002,7 @@ class MAP_NET_TI22(nn.Module):
 
     def forward(self, c_code):
         in_code = c_code
+        # print(in_code.shape, "FUCK UUUUUUUUUUUUUUUUUUUUUUUUUUU")
         x_code = self.fc1(in_code)
         output = self.fc2(x_code)
         
@@ -1199,7 +1200,7 @@ class D_NET_IMAGE(nn.Module):
 
     def define_module(self):
         ndf = self.df_dim
-
+            
         self.encodings = nn.Sequential(
             nn.Linear(ndf, ndf//2),
             #nn.BatchNorm1d(ndf//2),
@@ -1233,7 +1234,7 @@ class D_NET_IMAGE1(nn.Module):
         ndf = self.ef_dim
 
         self.encodings = nn.Sequential(
-            nn.Linear(ndf, ndf*4),
+            nn.Linear(1024, ndf*4),
             #nn.BatchNorm1d(ndf//2),
             nn.LeakyReLU(0.2, inplace=True),
             
