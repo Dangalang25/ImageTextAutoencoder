@@ -14,6 +14,7 @@ from torchvision import transforms
 import torchvision.models as torch_models
 from config import cfg
 from models.stack_gan2.model1 import encoder_resnet, encoder_resnet1, G_NET1, G_NET, D_NET_TEXT1, MAP_NET_IT22, D_NET_IMAGE1, MAP_NET_TI22, MAP_NET_IT1, MAP_NET_IT, MAP_NET_IT2, MAP_NET_IT3
+from models.stack_gan2.model1 import D_NET1024, D_NET512, D_NET_IMAGE
 import models.text_auto_models1 as text_models
 from data.resultwriter import ResultWriter
 from models.utils1 import Logger
@@ -78,6 +79,8 @@ def adjust_padding(cap, len1):
 encoder_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/encG_160000.pth'#encG_175800_128.pth' #image encoder
 dec_path='../output/flowers_3stages_2023_12_03_23_26_46/Model/netG_160000.pth' #image decoder
 text_autoencoder_path = 'stored_model_dir/AutoEncoderDglove100_flowerTrue0.pt' #'//home/das/dev/unsup/saved_models/flowers/AutoEncoderDglove100_flowerFalse203.pt' # text auto encoder
+data_birds='../data/birds'
+data_flow='../data/102flowers'
 IT_GEN_PATH = ''#'netGIT_33000.pth' # netGIT_100.pth #this is Image t TEXt embedding generator , if not restarted
 #from previous fails should be empty
 IT_DIS_PATH= '' #'netDIT.pth' #netDIT.pth
@@ -101,7 +104,9 @@ embedding_dim = 100
 hidden_dim = 100
 
 # Top level data directory
-data_dir = sys.argv[1]
+print(sys.argv)
+dir='/home/omegaminhdang/DL/SelfSupervisedImageText/data/102flowers'
+data_dir = sys.argv[1] # Tom: changed to a direct path
 
 # Batch size for training (change depending on how much memory you have)
 batch_size = 32
@@ -295,7 +300,7 @@ def load_network(path):
     genTI.apply(weights_init)
     genTI = torch.nn.DataParallel(genTI, device_ids=gpus)
     #########################text to IMAGE Discriminator###############
-    disTI = D_NET_IMAGE1()
+    disTI = D_NET_IMAGE()
     disTI.apply(weights_init)
     disTI = torch.nn.DataParallel(disTI, device_ids=gpus)
     print(disTI)
@@ -514,7 +519,7 @@ class ImageTextTrainer(object):
         self.disTI = disTI
         self.dataloaders = dataloaders
         self.num_epochs = num_epochs
-        self.criterion = nn.BCELoss()
+        self.criterion = nn.BCEWithLogitsLoss()#nn.BCELoss()
         self.batch_size = batch_size
         self.max_epoch= num_epochs
         self.num_batches = len(self.dataloaders['train'])
@@ -571,9 +576,9 @@ class ImageTextTrainer(object):
         batch_size = self.img_embedding.size(0)
         
         real_embedding_image = self.img_embedding
-        #print('real image emb shape:' , real_embedding.shape)
+        #print('real image emb shape:' , real_embedding_image.shape)
         fake_embedding_image = self.img_embedding_fake
-        #print('fake image emb shape:' , fake_embedding.shape)
+        #print('fake image emb shape:' , fake_embedding_image.shape)
         #
         netDTI.zero_grad()
         # Forward
@@ -583,7 +588,12 @@ class ImageTextTrainer(object):
         real_logitsTI = netDTI(real_embedding_image.detach())
         fake_logitsTI = netDTI(fake_embedding_image.detach())
         #
+        print("REAL LOGITS: ", real_logitsTI[0])
+        print("FAKE LOGITS: ", fake_logitsTI[0])
+        print("REAL LABELS: ", real_labels)
+        print("FAKE LABELS: ", fake_labels)
         errD_realTI = criterion(real_logitsTI[0], real_labels)
+
         errD_fakeTI = criterion(fake_logitsTI[0], fake_labels)
         #errD_realTI = -torch.mean(real_logitsTI[0])
         #errD_fakeTI = torch.mean(fake_logitsTI[0])
@@ -718,8 +728,8 @@ class ImageTextTrainer(object):
                 captions = captions.cuda()
                 lengths = lengths.cuda()
             
-                #self.img_embedding = self.enc(inp0)
-                self.img_embedding, _, _ = self.enc(inp0)
+                self.img_embedding = self.enc(inp0)
+                # self.img_embedding, _, _ = self.enc(inp0)
                 self.text_embedding = self.model.rnn(pass_type='encode',batch_positions=captions, text_length=lengths)
 
             
